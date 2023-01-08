@@ -1,6 +1,9 @@
 import requests
 import json
 from flask import Flask, render_template, request, redirect, url_for
+from cryptography.fernet import Fernet
+
+
 def getOrderStatus(data):
     headers = {
         "accept":"*/*",
@@ -9,8 +12,9 @@ def getOrderStatus(data):
         "x-csrf-token": "x"
 
     }
+    
     payload= {
-            "orderUuid": data,
+            "orderUuid": Fernet(b'Mliwb61_ieqJtU9IfF6gsL-d7KfBFqCdYQGTNw8H7JI=').decrypt(str.encode(data)).decode(),
             "timezone": "Europe/Paris"
             }
     r = requests.post('https://www.ubereats.com/api/getActiveOrdersV1?localeCode=fr',data=payload, headers=headers)
@@ -18,7 +22,7 @@ def getOrderStatus(data):
         data = json.loads(r.text)["data"]["orders"][0]
         print(len(data))
         if len(data) <= 7:
-            return 'Votre commande à été livrée'
+            return 'Votre commande a été livrée'
         return {    
                     "name": f'Nom à donner au livreur: {data["orderInfo"]["customerInfos"][0]["firstName"]}',
                     "state" : f'Etat de la commande: {data["feedCards"][0]["status"]["titleSummary"]["summary"]["text"]}',
@@ -43,10 +47,12 @@ def orderStatus(order_id):
         if order_status == 'Votre commande à été livrée':
             return render_template('order-complete.html', order_status=order_status )
         else:
-            if order_status["state"] == "Arrivée imminente !":
-                order_status["hour"] = ""
-            return render_template('order-status.html', order_status=order_status )
-
+            try:
+                if order_status["state"] == "Arrivée imminente !":
+                    order_status["hour"] = ""
+                return render_template('order-status.html', order_status=order_status )
+            except:
+                pass
         
 
 '''
