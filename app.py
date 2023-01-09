@@ -4,7 +4,6 @@ from flask import Flask, render_template, request, redirect, url_for
 from cryptography.fernet import Fernet
 
 
-
 def getOrderStatus(data):
     headers = {
         "accept":"*/*",
@@ -15,7 +14,7 @@ def getOrderStatus(data):
     }
 
     f = Fernet(b'ioRmZuU09M1_flNU9VKh3hCMnSjpoG2wEZK-ElkNCpo=')
-    data = f.decrypt(str.encode(data))
+    data = bytes(f.decrypt(str.encode(data)))
     data = data.decode()
     payload= {
         "orderUuid": data,
@@ -24,13 +23,17 @@ def getOrderStatus(data):
     r = requests.post('https://www.ubereats.com/api/getActiveOrdersV1?localeCode=fr',data=payload, headers=headers)
     data = json.loads(r.text)["data"]["orders"][0]
     print(len(data))
-    if len(data) <= 7:
-        return 'Votre commande a été livrée'
+    if len(data) == 7:
+        return {    
+                "name": "",
+                "state" : 'livrée',
+                "time": ""
+    }
     
     return {    
-                "name": f'Nom à donner au livreur: {data["orderInfo"]["customerInfos"][0]["firstName"]}',
-                "state" : f'Etat de la commande: {data["feedCards"][0]["status"]["titleSummary"]["summary"]["text"]}',
-                "time": f'Heure de livraison estimée: {data["feedCards"][0]["status"]["subtitleSummary"]["summary"]["text"]}'
+                "name": f'Nom à donner au livreur: {data["orderInfo"]["customerInfos"][0]["firstName"]}.',
+                "state" : f'Etat de la commande: {data["feedCards"][0]["status"]["titleSummary"]["summary"]["text"]}.',
+                "time": f'Heure de livraison estimée: {data["feedCards"][0]["status"]["subtitleSummary"]["summary"]["text"]}.'
     }
 
 
@@ -47,15 +50,16 @@ def home_page():
 def orderStatus(order_id):
         
         order_status = getOrderStatus(order_id)
-        if order_status == 'Votre commande à été livrée':
+        if order_status["state"] == 'livrée':
             return render_template('order-complete.html', order_status=order_status )
         else:
-            try:
                 if order_status["state"] == "Arrivée imminente !":
-                    order_status["hour"] = ""
-                return render_template('order-status.html', order_status=order_status )
-            except:
-                pass
+                    order_status["time"] = ""
+                else:
+                    pass
+                return render_template('order-status.html', order_status=order_status)
 
 
+if __name__ == "__main__":
+    app.run(host='0.0.0.0', port='8080', debug=True)
 
