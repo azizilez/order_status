@@ -4,6 +4,7 @@ from flask import Flask, render_template, request, redirect, url_for
 from cryptography.fernet import Fernet
 
 
+
 def getOrderStatus(data):
     headers = {
         "accept":"*/*",
@@ -12,24 +13,26 @@ def getOrderStatus(data):
         "x-csrf-token": "x"
 
     }
-    
+
+    f = Fernet(b'ioRmZuU09M1_flNU9VKh3hCMnSjpoG2wEZK-ElkNCpo=')
+    data = f.decrypt(str.encode(data))
+    data = data.decode()
     payload= {
-            "orderUuid": Fernet(b'Mliwb61_ieqJtU9IfF6gsL-d7KfBFqCdYQGTNw8H7JI=').decrypt(str.encode(data)).decode(),
-            "timezone": "Europe/Paris"
-            }
-    r = requests.post('https://www.ubereats.com/api/getActiveOrdersV1?localeCode=fr',data=payload, headers=headers)
-    try:
-        data = json.loads(r.text)["data"]["orders"][0]
-        print(len(data))
-        if len(data) <= 7:
-            return 'Votre commande a été livrée'
-        return {    
-                    "name": f'Nom à donner au livreur: {data["orderInfo"]["customerInfos"][0]["firstName"]}',
-                    "state" : f'Etat de la commande: {data["feedCards"][0]["status"]["titleSummary"]["summary"]["text"]}',
-                    "time": f'Heure de livraison estimée: {data["feedCards"][0]["status"]["subtitleSummary"]["summary"]["text"]}'
+        "orderUuid": data,
+        "timezone": "Europe/Paris"
         }
-    except KeyError:
-        pass
+    r = requests.post('https://www.ubereats.com/api/getActiveOrdersV1?localeCode=fr',data=payload, headers=headers)
+    data = json.loads(r.text)["data"]["orders"][0]
+    print(len(data))
+    if len(data) <= 7:
+        return 'Votre commande a été livrée'
+    
+    return {    
+                "name": f'Nom à donner au livreur: {data["orderInfo"]["customerInfos"][0]["firstName"]}',
+                "state" : f'Etat de la commande: {data["feedCards"][0]["status"]["titleSummary"]["summary"]["text"]}',
+                "time": f'Heure de livraison estimée: {data["feedCards"][0]["status"]["subtitleSummary"]["summary"]["text"]}'
+    }
+
 
 app = Flask(__name__)
 
@@ -53,7 +56,9 @@ def orderStatus(order_id):
                 return render_template('order-status.html', order_status=order_status )
             except:
                 pass
-        
+
+if __name__ == "__main__":
+    app.run(host='0.0.0.0', port='8080')
 
 '''
 accounts = len(os.listdir('accounts/'))
